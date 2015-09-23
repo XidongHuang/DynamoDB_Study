@@ -13,9 +13,13 @@
  * permissions and limitations under the License.
  */
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 
 import com.amazonaws.AmazonClientException;
@@ -28,6 +32,7 @@ import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient;
 import com.amazonaws.services.dynamodbv2.document.DynamoDB;
 import com.amazonaws.services.dynamodbv2.document.Item;
 import com.amazonaws.services.dynamodbv2.document.ItemCollection;
+import com.amazonaws.services.dynamodbv2.document.PutItemOutcome;
 import com.amazonaws.services.dynamodbv2.document.QueryOutcome;
 import com.amazonaws.services.dynamodbv2.document.Table;
 import com.amazonaws.services.dynamodbv2.document.TableCollection;
@@ -147,9 +152,11 @@ public class AmazonDynamoDBSample {
 
             // Scan items for movies with a year attribute greater than 1985
             HashMap<String, Condition> scanFilter = new HashMap<String, Condition>();
+            
             Condition condition = new Condition()
                 .withComparisonOperator(ComparisonOperator.GT.toString())
                 .withAttributeValueList(new AttributeValue().withN("510"));
+            
             scanFilter.put("PageCount", condition);
             ScanRequest scanRequest = new ScanRequest(tableName);
             ScanResult scanResult = dynamoDB.scan(scanRequest);
@@ -171,31 +178,26 @@ public class AmazonDynamoDBSample {
             queryItems(tableName);
             System.out.println("--------");
             
-            Table table = dy.getTable("Reply");
-
-            long twoWeeksAgoMilli = (new Date()).getTime() - (300L*24L*60L*60L*1000L);
-            Date twoWeeksAgo = new Date();
-            twoWeeksAgo.setTime(twoWeeksAgoMilli);
-            SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
-            String twoWeeksAgoStr = df.format(twoWeeksAgo);
-
-            QuerySpec spec = new QuerySpec()
-                .withKeyConditionExpression("Id = :v_id and ReplyDateTime > :v_reply_dt_tm")
-                .withFilterExpression("PostedBy = :v_posted_by")
-                .withValueMap(new ValueMap()
-                    .withString(":v_id", "Amazon DynamoDB#DynamoDB Thread 1")
-                    .withString(":v_reply_dt_tm", twoWeeksAgoStr)
-                    .withString(":v_posted_by", "User B"))
-                .withConsistentRead(true);
-
-            ItemCollection<QueryOutcome> items = table.query(spec);
-
-            Iterator<Item> iterator = items.iterator();
+            queryLast300Days();
+            System.out.println("----Hi----");
             
-            while (iterator.hasNext()) {
-            	System.out.println("----Hi----");
-                System.out.println(iterator.next());
-            }
+            Table table = dy.getTable("ProductCatalog");
+            Item item = table.getItem("Id", 206,
+            		"Id, Title, Description, BicycleType, Brand, Price, RelatedItems, Reviews",null);
+            System.out.println(item.toJSONPretty());
+            
+            System.out.println("--------------");
+            HashMap<String, Condition> scanF = new HashMap<>();
+            
+            Condition conditionR = new Condition()
+            		.withComparisonOperator(ComparisonOperator.CONTAINS.toString())
+            		.withAttributeValueList(new AttributeValue().withS("Green"));
+            scanF.put("Color", conditionR);
+            ScanRequest scanRequest2 = new ScanRequest("ProductCatalog");
+            ScanResult scanResult2 = dynamoDB.scan(scanRequest2);
+            System.out.println(scanResult2);
+            //putItem();
+        
             
             
         } catch (AmazonServiceException ase) {
@@ -213,6 +215,80 @@ public class AmazonDynamoDBSample {
             System.out.println("Error Message: " + ace.getMessage());
         }
     }
+
+	private static void putItem() {
+		String tableName;
+		tableName = "ProductCatalog";
+		Table table = dy.getTable(tableName);
+		
+		List<Number> relatedItems = new ArrayList<>();
+		relatedItems.add(341);
+		relatedItems.add(472);
+		relatedItems.add(649);
+		
+		Map<String, String> picturesw = new HashMap<>();
+		picturesw.put("FrontView", "http://subaru.ca");
+		picturesw.put("RearView", "http://baidu.com");
+		picturesw.put("SideView", "http://Algomau.ca");
+		
+		Map<String, List<String>> reviews = new HashMap<>();
+		
+		List<String> fiveStarReviews = new ArrayList<>();
+		fiveStarReviews.add("Excellent! Can't recommend it highly enough! Buy it!");
+		fiveStarReviews.add("Do yourself a favor and buy this");
+		reviews.put("FiveStar", fiveStarReviews);
+		
+		List<String> oneStarReviews = new ArrayList<>();
+		oneStarReviews.add("Terrible product! Do not buy this.");
+		reviews.put("OneStar", oneStarReviews);
+		
+		
+		Item item = new Item()
+				.withPrimaryKey("Id",206)
+				.withString("Description", "20-Bicycle 206")
+				.withString("BicycleType","Hybrid")
+				.withString("Brand", "Brand-Company C")
+				.withNumber("Price", 500)
+				.withString("Gender", "B")
+				.withStringSet("Color", new HashSet<String> (Arrays.asList("Red", "Black")))
+				.withString("ProductCategory", "Bike")
+				.withBoolean("InStock", true)
+				.withNull("QuantityOnHand")
+				.withList("RelatedItems", relatedItems)
+				.withMap("Pictures", picturesw)
+				.withMap("Reviews", reviews);
+		
+		PutItemOutcome outcome = table.putItem(item);
+		
+		System.out.println(outcome);
+	}
+
+	private static void queryLast300Days() {
+		Table table = dy.getTable("Reply");
+
+		long twoWeeksAgoMilli = (new Date()).getTime() - (300L*24L*60L*60L*1000L);
+		Date twoWeeksAgo = new Date();
+		twoWeeksAgo.setTime(twoWeeksAgoMilli);
+		SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+		String twoWeeksAgoStr = df.format(twoWeeksAgo);
+
+		QuerySpec spec = new QuerySpec()
+		    .withKeyConditionExpression("Id = :v_id and ReplyDateTime > :v_reply_dt_tm")
+		    .withFilterExpression("PostedBy = :v_posted_by")
+		    .withValueMap(new ValueMap()
+		        .withString(":v_id", "Amazon DynamoDB#DynamoDB Thread 1")
+		        .withString(":v_reply_dt_tm", twoWeeksAgoStr)
+		        .withString(":v_posted_by", "User B"))
+		    .withConsistentRead(true);
+
+		ItemCollection<QueryOutcome> items = table.query(spec);
+
+		Iterator<Item> iterator = items.iterator();
+		
+		while (iterator.hasNext()) {
+		    System.out.println(iterator.next());
+		}
+	}
 
 	private static void queryItems(String tableName) {
 		Table table = dy.getTable(tableName);
