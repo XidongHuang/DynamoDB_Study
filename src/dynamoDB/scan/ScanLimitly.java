@@ -1,4 +1,4 @@
-package dynamoDB.query;
+package dynamoDB.scan;
 
 import java.util.Map;
 
@@ -7,7 +7,7 @@ import com.amazonaws.services.dynamodbv2.model.AttributeValue;
 import com.amazonaws.services.dynamodbv2.model.ScanRequest;
 import com.amazonaws.services.dynamodbv2.model.ScanResult;
 
-public class QueryLimitly {
+public class ScanLimitly {
 
 	
 	

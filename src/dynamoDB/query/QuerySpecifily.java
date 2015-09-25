@@ -1,68 +1,69 @@
 package dynamoDB.query;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Iterator;
 
-import com.amazonaws.AmazonClientException;
-import com.amazonaws.auth.AWSCredentials;
-import com.amazonaws.auth.profile.ProfileCredentialsProvider;
-import com.amazonaws.regions.Region;
-import com.amazonaws.regions.Regions;
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient;
 import com.amazonaws.services.dynamodbv2.document.DynamoDB;
-import com.amazonaws.services.dynamodbv2.model.AttributeValue;
-import com.amazonaws.services.dynamodbv2.model.ScanRequest;
-import com.amazonaws.services.dynamodbv2.model.ScanResult;
+import com.amazonaws.services.dynamodbv2.document.Item;
+import com.amazonaws.services.dynamodbv2.document.ItemCollection;
+import com.amazonaws.services.dynamodbv2.document.Page;
+import com.amazonaws.services.dynamodbv2.document.QueryOutcome;
+import com.amazonaws.services.dynamodbv2.document.Table;
+import com.amazonaws.services.dynamodbv2.document.spec.QuerySpec;
+import com.amazonaws.services.dynamodbv2.document.utils.ValueMap;
 
 public class QuerySpecifily {
 
-	private static DynamoDB dynamoDB;
-	private static AmazonDynamoDBClient client;
-	
-	private static String tableName = "ProductCatalog";
-	
-	private static void init(){
-		
-		AWSCredentials credentials = null;
-		
-		try {
-			
-			credentials = new ProfileCredentialsProvider("default").getCredentials(); 
-			
-		} catch (Exception e) {
-			throw new AmazonClientException("Cannot load the credentials from the credential profiles file. "
-					+ "Please make sure that your credentials file is at the correct "
-					+ "location (/home/tony/.aws/credentials), and is in valid format.", e);
-		}
-		
-		client = new AmazonDynamoDBClient(credentials);
-		Region usWest2 = Region.getRegion(Regions.US_WEST_2);
-		client.setRegion(usWest2);
-		dynamoDB = new DynamoDB(client);
-		
-	}
-	
-	
 	public static void main(String[] args) {
-		init();
+		Initial.init();
+		DynamoDB dynamoDB = Initial.getDynamoDB();
 		
-		Map<String, AttributeValue> expressionAttributeValues = 
-				new HashMap<String, AttributeValue>();
-		expressionAttributeValues.put(":val", new AttributeValue().withN("100"));
+		Table table = dynamoDB.getTable("Reply");
 		
-		ScanRequest scanRequest =  new ScanRequest()
-				.withTableName(tableName)
-				.withFilterExpression("Price < :val")
-				.withProjectionExpression("Id")
-				.withExpressionAttributeValues(expressionAttributeValues);
 		
-		ScanResult result = client.scan(scanRequest);
-		for(Map<String, AttributeValue> item: result.getItems()){
-			System.out.println(item);
+		long twoWeeksAgoMilli = 
+				(new Date()).getTime() - (300L * 24L * 60L * 60L * 1000L);
+		Date twoWeekAgo = new Date();
+		twoWeekAgo.setTime(twoWeeksAgoMilli);
+		SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+		String twoWeeksAgoStr = df.format(twoWeekAgo);
+		
+		QuerySpec spec = new QuerySpec()
+				.withKeyConditionExpression("Id = :v_id ")
+//				.withFilterExpression("PostedBy = :v_posted_by")
+				.withValueMap(new ValueMap()
+						.withString(":v_id", "Amazon DynamoDB#DynamoDB Thread 1"))
+//						.withString(":v_reply_dt_tm", twoWeeksAgoStr)
+//						.withString(":v_posted_by", "User B"))
+				.withConsistentRead(true);
+		spec.withMaxPageSize(1);
+		
+		
+		
+		ItemCollection<QueryOutcome> items = table.query(spec);
+//		Iterator<Item> iterator = items.iterator();
+//		
+//		while(iterator.hasNext()){
+//			System.out.println(iterator.next().toJSONPretty());
+//			
+//		}
+		
+		
+		int pageNum = 0;
+		for(Page<Item, QueryOutcome> page:items.pages()){
+			
+			System.out.println("\nPage: " + ++pageNum);
+			
+			Iterator<Item> item = page.iterator();
+			while(item.hasNext()){
+				System.out.println(item.next().toJSONPretty());
+			}
 		}
 		
+		
+		
 	}
-	
 	
 	
 }

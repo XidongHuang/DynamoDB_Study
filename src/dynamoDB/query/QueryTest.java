@@ -1,69 +1,49 @@
 package dynamoDB.query;
 
+import java.util.HashMap;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 
-import com.amazonaws.AmazonClientException;
-import com.amazonaws.auth.AWSCredentials;
-import com.amazonaws.auth.profile.ProfileCredentialsProvider;
-import com.amazonaws.regions.Region;
-import com.amazonaws.regions.Regions;
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient;
 import com.amazonaws.services.dynamodbv2.document.DynamoDB;
-import com.amazonaws.services.dynamodbv2.model.AttributeValue;
-import com.amazonaws.services.dynamodbv2.model.ScanRequest;
-import com.amazonaws.services.dynamodbv2.model.ScanResult;
+import com.amazonaws.services.dynamodbv2.document.Item;
+import com.amazonaws.services.dynamodbv2.document.ItemCollection;
+import com.amazonaws.services.dynamodbv2.document.QueryOutcome;
+import com.amazonaws.services.dynamodbv2.document.Table;
+import com.amazonaws.services.dynamodbv2.document.spec.QuerySpec;
+import com.amazonaws.services.dynamodbv2.document.utils.ValueMap;
 
 public class QueryTest {
 
-	private static DynamoDB dynamoDB;
-	private static AmazonDynamoDBClient client;
-	
-	private static String replyTableName = "Reply";
-	
-	
-	private static void init(){
-		
-		AWSCredentials credentials = null;
-		
-		try {
-			
-			credentials = new ProfileCredentialsProvider("default").getCredentials();
-			
-		} catch (Exception e) {
-			throw new AmazonClientException("Cannot load the credentials from the credential profiles file. "
-					+ "Please make sure that your credentials file is at the correct "
-					+ "location (/home/tony/.aws/credentials), and is in valid format.", e);
-		}
-		
-		client = new AmazonDynamoDBClient(credentials);
-		Region usWest2 = Region.getRegion(Regions.US_WEST_2);
-		client.setRegion(usWest2);
-		dynamoDB = new DynamoDB(client);
-		
-	}
 	
 	public static void main(String[] args) {
-		init();
+		Initial.init();
+		DynamoDB dynamoDB = Initial.getDynamoDB();
 		
-		ScanRequest scanRequest = new ScanRequest()
-				.withTableName(replyTableName);
+		Table table = dynamoDB.getTable("Reply");
 		
-		ScanResult result = client.scan(scanRequest);
 		
-		List<Map<String, AttributeValue>> results=  result.getItems();
+//		Map<String, Object> valueMap = new HashMap<>();
+//		valueMap.put(":v_id", "Amazon DynamoDB#DynamoDB Thread 1");
 		
-		Iterator items = results.iterator();
+		QuerySpec spec = new QuerySpec()
+				.withKeyConditionExpression("Id = :v_id")
+				.withValueMap(new ValueMap()
+						.withString(":v_id", "Amazon DynamoDB#DynamoDB Thread 1"));
 		
-		while(items.hasNext()){
-			System.out.println(items.next());
+		ItemCollection<QueryOutcome> items = table.query(spec);
+		
+		Iterator<Item> iterator = items.iterator();
+		Item item = null;
+		while(iterator.hasNext()){
+			item = iterator.next();
+			
+			System.out.println(item.toJSONPretty());
 			
 		}
+					
 		
-		System.out.println(results);
 		
 	}
 	
+	
 }
-

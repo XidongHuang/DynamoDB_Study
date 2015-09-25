@@ -1,4 +1,4 @@
-package dynamoDB.query;
+package dynamoDB.scan;
 
 import java.util.ArrayList;
 import java.util.HashMap;
